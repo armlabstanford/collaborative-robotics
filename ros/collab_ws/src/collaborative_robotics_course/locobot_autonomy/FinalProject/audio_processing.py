@@ -15,7 +15,7 @@ import google.generativeai as genai
 
 # add the current API keys to Path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-json_key_path = os.path.join(current_dir, "APIKeys", "NaixiangKe.json")
+json_key_path = os.path.join(current_dir, "APIKeys", "NaixiangKey.json")
 if os.path.exists(json_key_path):
     print("File exsits!")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_key_path
@@ -50,9 +50,9 @@ class AudioProcess(Node):
 
     def audio_process(self):
         # 1. Record from microphone
-        record_audio(self.filename, duration=5, sample_rate=16000)
+        self.record_audio(self.filename, duration=5, sample_rate=16000)
         # 2. Transcribe the recorded audio
-        transcription = transcribe_audio(self.filename)
+        self.transcription = transcribe_audio(self.filename)
         # 3. process the transcription
         raw_item = self.generate_content(transcription)
         # print("Gemini raw output:", repr(raw_item)) 
