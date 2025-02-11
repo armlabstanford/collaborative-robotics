@@ -48,12 +48,12 @@ class LocobotExample(Node):
 
         self.current_target = "B" #points A and B, if A its the origin, if B it is the second specified point. This sript
         self.target_pose_reached_bool = False
+        
 
-
-        #Obtain or specify the goal pose (in sim, its between locobot/odom (world) and locobot/base_link (mobile base))
+        # Obtain or specify the goal pose (in sim, its between locobot/odom (world) and locobot/base_link (mobile base))
         if type(target_pose) == type(None):
             target_pose = Pose()
-            target_pose.position.x = 1.0
+            target_pose.position.x = 2.0
             target_pose.position.y = 0.0
             #specify the desired pose to be the same orientation as the origin
             target_pose.orientation.x = 0.0
@@ -85,7 +85,7 @@ class LocobotExample(Node):
 
         self.L = 0.1 #this is the distance of the point P (x,y) that will be controlled for position. The locobot base_link frame points forward in the positive x direction, the point P will be on the positive x-axis in the body-fixed frame of the robot mobile base
         #set targets for when a goal is reached: 
-        self.goal_reached_error = 0.01
+        self.goal_reached_error = 0.05
         self.integrated_error = np.matrix([[0],[0]]) #this is the integrated error for Proportional, Integral (PI) control
         # self.integrated_error_factor = 1.0 #multiply this by accumulated error, this is the Ki (integrated error) gain
         self.integrated_error_list = []
@@ -130,6 +130,7 @@ class LocobotExample(Node):
         marker.scale.x = 0.3  # arrow length
         marker.scale.y = 0.1 #arrow width
         marker.scale.z = 0.1 #arrow height
+        
 
         # Set the marker pose
         marker.pose.position.x = self.target_pose.position.x  # center of the sphere in base_link frame
@@ -154,11 +155,10 @@ class LocobotExample(Node):
     def odom_mobile_base_callback(self, data):
    
         # Step 1: Calculate the point P location (distance L on the x-axis), and publish the marker so it can be seen in Rviz
-        #first determine the relative angle of the mobile base in the world xy-plane, this angle is needed to determine where to put the point P
-        #the rotation will be about the world/body z-axis, so we will only need the qw, and qz quaternion components. We can then use knoweldge of the 
-        #relationship between quaternions and rotation matricies to see how we must rotate the Lx vector into the world (odom) frame and add it to the base position
-        #to obtain the point P (for more info on quaterions, see a primer at the bottom of this page: https://arm.stanford.edu/resources/armlab-references)
-
+        # first determine the relative angle of the mobile base in the world xy-plane, this angle is needed to determine where to put the point P
+        # the rotation will be about the world/body z-axis, so we will only need the qw, and qz quaternion components. We can then use knoweldge of the 
+        # relationship between quaternions and rotation matricies to see how we must rotate the Lx vector into the world (odom) frame and add it to the base position
+        # to obtain the point P (for more info on quaterions, see a primer at the bottom of this page: https://arm.stanford.edu/resources/armlab-references)
         x_data = data.pose.pose.position.x
         y_data = data.pose.pose.position.y
         z_data = data.pose.pose.position.z
@@ -172,7 +172,7 @@ class LocobotExample(Node):
         R12 = 2*qx*qz + 2*qw*qz
         R21 = 2*qx*qz - 2*qw*qz
         R22 = qw**2 - qx**2 + qy**2 -qz**2
-
+        
         point_P = Point()
         #NOTE: the following assumes that when at the origin, the baselink and odom/world frame are aligned, and the z-axis points up. If this is not true then there is not a simple rotation about the z-axis as shown below
         point_P.x = x_data + self.L*R11
@@ -191,9 +191,7 @@ class LocobotExample(Node):
         err_y = self.target_pose.position.y - point_P.y
         error_vect = np.matrix([[err_x],[err_y]]) #this is a column vector (2x1); equivalently, we could use the transpose operator (.T): np.matrix([err_x ,err_y]).T  
 
-        # print("target pose",self.target_pose,"current pose: ",point_P)
-
-        Kp_mat = 1*np.eye(2) #proportional gain matrix, diagonal with gain of 0.2 (for PID control)
+        Kp_mat = 1.2 * np.eye(2) # proportional gain matrix, diagonal with gain of 1.2 (for PID control)
         Ki_mat = 0.2*np.eye(2)
 
         #We will deal with this later (once we reached the position (x,y) goal), but we can calculate the angular error now - again this assumes there is only planar rotation about the z-axis, and the odom/baselink frames when aligned have x,y in the plane and z pointing upwards
@@ -228,14 +226,12 @@ class LocobotExample(Node):
             self.integrated_error = self.integrated_error + err
 
 
-
-        point_p_error_signal = Kp_mat*error_vect + Ki_mat*self.integrated_error
+        point_p_error_signal = Kp_mat*error_vect # + Ki_mat*self.integrated_error
         #The following relates the desired motion of the point P and the commanded forward and angular velocity of the mobile base [v,w]
         non_holonomic_mat = np.matrix([[np.cos(current_angle), -self.L*np.sin(current_angle)],[np.sin(current_angle),self.L*np.cos(current_angle)]])
         #Now perform inversion to find the forward velocity and angular velcoity of the mobile base.
         control_input = np.linalg.inv(non_holonomic_mat)*point_p_error_signal #note: this matrix can always be inverted because the angle is L
    
-
 
         #find the magnitude of the positional error to determine if its time to focus on orientation or switch targets
         err_magnitude = np.linalg.norm(error_vect)
@@ -243,15 +239,22 @@ class LocobotExample(Node):
         # print("\n point P error signal:",point_p_error_signal,"\n non-hol-mat",non_holonomic_mat,"\n Current angle (deg):",current_angle*180/np.pi)
         # print("net err_magnitude",net_error_magnitude,"\n simple error err_magnitude",err_magnitude,"\n Error vector",error_vect,"\n integrated_error:",Ki_mat*self.integrated_error,"\n Control input",control_input)
    
-        #now let's turn this into the message type and publish it to the robot:
+        # now let's turn this into the message type and publish it to the robot:
         control_msg = Twist()
         control_msg.linear.x = float(control_input.item(0)) #extract these elements then cast them in float type
         control_msg.angular.z = float(control_input.item(1))
         #now publish the control output:
+        
+        # small little hack to make sure the control input is not too large (if it is, then normalize it)
+        if np.linalg.norm(control_input) > 2:
+            control_msg.linear.x = control_msg.linear.x/np.linalg.norm(control_input)
+            control_msg.angular.z = control_msg.angular.z/np.linalg.norm(control_input)
+        
         self.mobile_base_vel_publisher.publish(control_msg)
+        # print out err magnitude for now.
+        print("err magnitude",err_magnitude)
 
-   
-        #Step 4: Finally, once point B has been reached, then return back to point A and vice versa      
+        # Step 4: Finally, once point B has been reached, then return back to point A and vice versa      
         if err_magnitude < self.goal_reached_error:
             #reset the integrated error: 
             self.integrated_error_list = []
@@ -264,10 +267,11 @@ class LocobotExample(Node):
 
         if self.current_target == 'A':
             #if current target is A, then set it as the goal pose
-            self.target_pose.position.x = 0.0
+            self.target_pose.position.x = 2.0
             self.target_pose.position.y = 0.0
+            
         if self.current_target == 'B':
-            self.target_pose.position.x = 1.0
+            self.target_pose.position.x = 0.0
             self.target_pose.position.y = 0.0
 
         # print("target ",self.current_target)
