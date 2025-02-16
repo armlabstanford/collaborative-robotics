@@ -1,0 +1,9 @@
+# Goal
+string command
+float64 duration
+---
+# Result
+bool success
+---
+# Feedback
+string feedback

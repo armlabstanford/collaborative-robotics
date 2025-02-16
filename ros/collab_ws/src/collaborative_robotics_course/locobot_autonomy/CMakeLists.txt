@@ -42,8 +42,6 @@ find_package(Eigen3 REQUIRED)
 
 find_package(la_msgs REQUIRED)
 
-
-
 # Install Python executables
 install(PROGRAMS
   locobot_autonomy/move_A_to_B_py.py
