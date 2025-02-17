@@ -14,8 +14,10 @@ from google.cloud import speech_v1p1beta1 as speech
 import google.generativeai as genai
 
 # add the current API keys to Path
-current_dir = os.path.dirname(os.path.abspath(__file__))
-json_key_path = os.path.join(current_dir, "APIKeys", "NaixiangKey.json")
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# json_key_path = os.path.join(current_dir, "APIKeys", "NaixiangKey.json")
+json_key_path = "/home/ubuntu/Desktop/ME326/ros/collab_ws/src/collaborative_robotics_course/locobot_autonomy/FinalProject/APIKeys/NaixiangKey.json"
+print("Current json key path:", json_key_path)
 if os.path.exists(json_key_path):
     print("File exsits!")
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_key_path

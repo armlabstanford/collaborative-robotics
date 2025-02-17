@@ -1,0 +1,5 @@
+pip install sounddevice
+sudo apt update
+sudo apt install -y portaudio19-dev
+pip install google-cloud-speech
+pip install google-generativeai
