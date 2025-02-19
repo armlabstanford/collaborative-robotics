@@ -5,7 +5,7 @@ import rclpy                    # ROS2 client library
 from rclpy.node import Node     # ROS2 node baseclass
 import time
 import os
-from std_msgs.msg import String
+from std_msgs.msg import String, Bool
 
 # API import
 import sounddevice as sd
@@ -17,7 +17,7 @@ import google.generativeai as genai
 # current_dir = os.path.dirname(os.path.abspath(__file__))
 # json_key_path = os.path.join(current_dir, "APIKeys", "NaixiangKey.json")
 json_key_path = "/home/ubuntu/Desktop/ME326/ros/collab_ws/src/collaborative_robotics_course/locobot_autonomy/FinalProject/APIKeys/NaixiangKey.json"
-# test_audio_path = "/home/ubuntu/Desktop/ME326/ros/collab_ws/src/collaborative_robotics_course/locobot_autonomy/FinalProject/recorded_audio3.wav"
+test_audio_path = "/home/ubuntu/Desktop/ME326/ros/collab_ws/src/collaborative_robotics_course/locobot_autonomy/FinalProject/recorded_audio3.wav"
 
 print("Current json key path:", json_key_path)
 if os.path.exists(json_key_path):
@@ -32,26 +32,29 @@ class AudioProcess(Node):
         # give it a default node name
         super().__init__("AudioProcess")
         self.get_logger().info("AudioProcess node has been started!")
-        self.filename = "Audioes/recorded_audio.wav"
-        # self.filename = test_audio_path
+        # self.filename = "Audioes/recorded_audio.wav"
+        self.filename = test_audio_path
         self.gemini_model = genai.GenerativeModel("gemini-1.5-flash")
         self.prompt = "In the given voice transcript, identify what the object is that the user wants. Return only the object in lowercase and do not include any whitespaces, punctuation, or new. Here is the voice transcript: "
         
         self.item = ""
-        self.audio_publisher = self.create_publisher(String, 'AudioItem', 10)
-        self.timer_publish_audio = self.create_timer(1.0, self.publish_message)
-        self.timer_receive_audio = self.create_timer(5.0, self.audio_input_check_callback)
 
-    def publish_message(self):
+        self.audio_publisher = self.create_publisher(String, 'AudioItem', 10)
+
+        self.modify_audio_subscriber = self.create_subscription(Bool, 'ModifyAudioStatus', self.modify_audio_callback, 10)
+
+        self.timer_publish_audio = self.create_timer(1.0, self.audio_item_publisher)
+        # self.timer_receive_audio = self.create_timer(5.0, self.audio_input_check_callback)
+
+    def audio_item_publisher(self):
         msg = String()
         msg.data = self.item
         self.audio_publisher.publish(msg)
 
-    def audio_input_check_callback(self):
-        if self.item == "":
+    def modify_audio_callback(self, msg):
+        self.get_logger().info(f"Received ModifyAudioStatus: {msg.data}")
+        if msg.data == True:
             self.audio_process()
-        else:
-            pass
 
     def audio_process(self):
         # 1. Record from microphone
@@ -70,22 +73,22 @@ class AudioProcess(Node):
         """
         print("Recording started...")
         # Record audio (mono channel)
-        recorded_data = sd.rec(
-            int(duration * sample_rate),
-            samplerate=sample_rate,
-            channels=1,
-            dtype='int16'  # 16-bit PCM
-        )
-        sd.wait()  # Wait until recording is complete
-        print("Recording complete. Saving audio...")
+        # recorded_data = sd.rec(
+        #     int(duration * sample_rate),
+        #     samplerate=sample_rate,
+        #     channels=1,
+        #     dtype='int16'  # 16-bit PCM
+        # )
+        # sd.wait()  # Wait until recording is complete
+        # print("Recording complete. Saving audio...")
 
-        # Write the audio data to a WAV file
-        with wave.open(filename, 'wb') as wf:
-            wf.setnchannels(1)                 # mono
-            wf.setsampwidth(2)                # 2 bytes (16 bits)
-            wf.setframerate(sample_rate)
-            wf.writeframes(recorded_data.tobytes())
-        print(f"Audio saved to {filename}")
+        # # Write the audio data to a WAV file
+        # with wave.open(filename, 'wb') as wf:
+        #     wf.setnchannels(1)                 # mono
+        #     wf.setsampwidth(2)                # 2 bytes (16 bits)
+        #     wf.setframerate(sample_rate)
+        #     wf.writeframes(recorded_data.tobytes())
+        # print(f"Audio saved to {filename}")
 
     def transcribe_audio(self, filename, sample_rate=16000):
         """
